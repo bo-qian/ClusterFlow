@@ -41,3 +41,7 @@ For implementation or planning, read [the workflow contract](references/workflow
 ## Development use
 
 Before editing this repository, read `AGENTS.md`. Keep the commands, README and tests consistent. Do not claim untested live behavior as verified, publish, install globally or connect solely because this repository exists. Continuation uses explicit application restart input plus `prepare --resume ... --confirm-resume`; keep logical run ID and distinct execution IDs. Scientific compatibility remains the project's responsibility.
+
+## Input-only remote code mode
+
+Honor project code_mode=remote: prepare/upload only input and use existing remote_source. Require reviewed remote_check_command and application output paths. Never upload/seal solver code in this mode. Normal prepare/sync/submit/query/download commands apply; sync validates input remotely. Record Git evidence without claiming a frozen source; code updates require explicit user intent. See command guide for reproduction and mutable-code limitations. Profiles without code_mode preserve snapshot behavior.

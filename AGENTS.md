@@ -20,3 +20,7 @@ python scripts/clusterflow.py status --json
 python scripts/clusterflow.py doctor --json
 python -m unittest discover -s tests -v
 ```
+
+## Input-only remote code mode
+
+Honor project code_mode=remote: prepare/upload only input and use existing remote_source. Require reviewed remote_check_command and application output paths. Never upload/seal solver code in this mode. Normal prepare/sync/submit/query/download commands apply; sync validates input remotely. Record Git evidence without claiming a frozen source; code updates require explicit user intent. See command guide for reproduction and mutable-code limitations. Profiles without code_mode preserve snapshot behavior.

@@ -21,3 +21,10 @@ python -m unittest discover -s tests -v
 python -m pip check
 python scripts/clusterflow.py doctor --json
 ```
+
+
+## 0.1.0b2 input-only mode
+
+Windows: 67 automated tests, 65 passed / 2 POSIX-only skipped. Eight new tests cover input-only upload, source preservation, remote validation failure/recheck invalidation, conflicting/tampered input, changed Git evidence, duplicate submission, missing hooks and historical-operation restrictions. Existing snapshot tests remain passing. Live integration evidence is recorded separately after installation.
+
+Live input-only CLI acceptance: prepare/sync preview included one 1592-byte input, sync validated on existing remote solver, submit/query reported job 8884 COMPLETED with exit 0:0. Download retrieved input/logs and explicitly requested application data; progress reported Step 2, Sim_Time 0.01. Grouped VTX finalization succeeded with an explicitly configured application helper. No solver code was uploaded. This is a short smoke test, not long-term numerical validation.

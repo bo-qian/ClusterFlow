@@ -55,6 +55,11 @@ def validate_project(data):
     if records == Path(records.anchor) or records == source or source in records.parents:
         raise FlowError("record_root must be outside source and cannot be a filesystem root.")
     result["record_root"] = str(records)
+    mode = result.get("code_mode", "snapshot")
+    if mode not in ("snapshot", "remote"):
+        raise FlowError("code_mode must be snapshot or remote.")
+    if mode == "remote":
+        result["remote_check_command"] = argv(result.get("remote_check_command"), "remote_check_command")
     result["command"] = argv(result.get("command"), "command")
     result["check_command"] = argv(result.get("check_command"), "check_command")
     resources = result.setdefault("resources", {})
@@ -76,7 +81,7 @@ def validate_project(data):
     result.setdefault("exclude", [])
     if not isinstance(result["exclude"], list) or any(not isinstance(value, str) for value in result["exclude"]):
         raise FlowError("exclude must be an array of glob patterns.")
-    allowed = {"name", "cluster", "local_source", "remote_source", "remote_runs", "local_results", "record_root", "command", "check_command", "resources", "environment", "exclude"}
+    allowed = {"code_mode", "remote_check_command", "name", "cluster", "local_source", "remote_source", "remote_runs", "local_results", "record_root", "command", "check_command", "resources", "environment", "exclude"}
     if set(result) - allowed:
         raise FlowError("Unknown project field(s); do not embed passwords or private settings in examples.")
     return result

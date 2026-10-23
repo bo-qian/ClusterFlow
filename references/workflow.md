@@ -31,3 +31,7 @@ Check capability status and the command guide before acting. The beta implements
 ## Release verification
 
 Unit tests and a fake scheduler/transport first; live tests only with task authorization. Exercise wrong credentials, changed fingerprints, paths with spaces, upload/download interruption, response loss and duplicate prevention. A public release also requires an explicit license decision, secrets review, a clean-machine install check and one authorized realistic small-case workflow.
+
+## Input-only remote code mode
+
+Honor project code_mode=remote: prepare/upload only input and use existing remote_source. Require reviewed remote_check_command and application output paths. Never upload/seal solver code in this mode. Normal prepare/sync/submit/query/download commands apply; sync validates input remotely. Record Git evidence without claiming a frozen source; code updates require explicit user intent. See command guide for reproduction and mutable-code limitations. Profiles without code_mode preserve snapshot behavior.

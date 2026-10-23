@@ -53,10 +53,14 @@ def contents(source, excludes=()):
 
 
 def prepare(project, input_path, resume=None, timeout=600, source_execution=None):
+    if project.get("code_mode") == "remote" and (source_execution or resume):
+        raise FlowError("Remote-code mode cannot reproduce frozen code or continue a historical execution; prepare a new reviewed input.")
     if source_execution:
         if resume:
             raise FlowError("Choose historical reproduction or continuation explicitly, not both.")
         original = record(project, source_execution)
+        if original.get("code_mode") == "remote":
+            raise FlowError("Existing remote code was not frozen; historical source reproduction is unavailable.")
         verify(project, original)
         original_source = execution_path(project, source_execution) / "source"
         old_config = copy.deepcopy(original["project_config"])
@@ -67,7 +71,17 @@ def prepare(project, input_path, resume=None, timeout=600, source_execution=None
         raise FlowError("Check timeout must be positive.")
     input_path = relative_path(input_path)
     source = Path(project["local_source"])
-    before = contents(source, project["exclude"])
+    remote_mode = project.get("code_mode") == "remote"
+    if remote_mode:
+        path = source / input_path
+        if any(part.is_symlink() for part in (path, *path.parents)) or not path.is_file():
+            raise FlowError("Input must be a regular file, without symlink parents.")
+        payload = path.read_bytes()
+        if len(payload) > MAX_FILE or SENSITIVE.search(path.name) or b"PRIVATE KEY-----" in payload:
+            raise FlowError("Unsafe or oversized input.")
+        before = {input_path: {"sha256": digest(payload), "size": len(payload), "executable": False}}
+    else:
+        before = contents(source, project["exclude"])
     if input_path not in before:
         raise FlowError("Input must be a regular, included file inside local_source.")
     parent = record(project, resume) if resume else None
@@ -84,16 +98,19 @@ def prepare(project, input_path, resume=None, timeout=600, source_execution=None
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
             target.chmod(0o700 if info["executable"] else 0o600)
-        if contents(source, project["exclude"]) != before:
+        if (not remote_mode and contents(source, project["exclude"]) != before):
             raise FlowError("Local source changed during preparation; prepare again.")
         launch = {key: project[key] for key in ("command", "check_command", "environment", "resources", "exclude")}
+        for key in ("code_mode", "remote_check_command"):
+            if key in project:
+                launch[key] = project[key]
         manifest = {"files": before, "input": input_path, "input_sha256": before[input_path]["sha256"], "launch": launch}
         import json
         manifest_hash = digest(json.dumps(manifest, sort_keys=True).encode())
         values = {"input": str(frozen / input_path), "code": str(frozen), "run": str(directory), "tasks": str(project["resources"].get("tasks", 1))}
         check = [expand(arg, values) for arg in project["check_command"]]
         try:
-            result = subprocess.run(check, cwd=frozen, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
+            result = subprocess.CompletedProcess(check, 0, b"Remote input validation required during sync.\n", b"") if remote_mode else subprocess.run(check, cwd=frozen, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
         except subprocess.TimeoutExpired as error:
             raise FlowError("Project checks timed out; no submission was prepared.") from error
         (directory / "check.stdout.log").write_bytes(result.stdout)
@@ -109,8 +126,9 @@ def prepare(project, input_path, resume=None, timeout=600, source_execution=None
             "parent_execution": resume, "created": now(), "state": "PREPARED",
             "reproduces_execution": source_execution,
             "manifest_sha256": manifest_hash, "input": input_path,
-            "project_config": project, "check": {"argv": check, "exit_code": 0},
-            "remote_code": project["remote_source"] + "/clusterflow/" + execution + "/source",
+            "project_config": project, "check": {"argv": [] if remote_mode else check, "exit_code": None if remote_mode else 0, "stage": "remote_pending" if remote_mode else "local_passed"},
+            "remote_code": project["remote_source"] if remote_mode else project["remote_source"] + "/clusterflow/" + execution + "/source",
+            "code_mode": "remote" if remote_mode else "snapshot",
             "remote_run": project["remote_runs"] + "/" + (parent["run_id"] if parent else execution) + "/executions/" + execution,
             "events": [],
         }

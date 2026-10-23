@@ -216,7 +216,7 @@ def make_parser():
     item.add_argument("--file")
     item.add_argument("--trust-hooks", action="store_true")
     item.add_argument("--replace", action="store_true")
-    item = command("prepare", help="Freeze and test input/source; optionally link a continuation.")
+    item = command("prepare", help="Prepare input-only remote runs or checked source snapshots.")
     item.add_argument("project")
     item.add_argument("--input", required=True)
     item.add_argument("--resume", help="Parent execution; checkpoint settings remain application-owned.")

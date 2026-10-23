@@ -1,0 +1,41 @@
+{
+  "name": "example-simulation",
+  "cluster": "example-cluster",
+  "local_source": "D:/Research/example-solver",
+  "remote_source": "/home/researcher/projects/example-solver",
+  "remote_runs": "/home/researcher/runs/example-solver",
+  "local_results": "D:/ClusterOutputs/example-solver",
+  "command": [
+    "bash",
+    "run_case.sh",
+    "-i",
+    "{input}"
+  ],
+  "check_command": [
+    "python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests"
+  ],
+  "environment": {},
+  "resources": {
+    "tasks": 2,
+    "nodes": 1,
+    "memory_mb": 4096
+  },
+  "exclude": [
+    "*.mp4",
+    "*.png",
+    "*.pdf"
+  ],
+  "code_mode": "remote",
+  "remote_check_command": [
+    "/opt/solver/bin/python",
+    "{code}/run.py",
+    "--check-config",
+    "--input",
+    "{input}"
+  ]
+}

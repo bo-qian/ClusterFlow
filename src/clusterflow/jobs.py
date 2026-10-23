@@ -46,11 +46,13 @@ def inspect_resources(remote, config):
 
 def preview(project, data):
     manifest = verify(project, data)
-    return {"execution_id": data["execution_id"], "remote_code": data["remote_code"], "remote_run": data["remote_run"], "files": list(manifest["files"]), "bytes": sum(info["size"] for info in manifest["files"].values()), "deletions": [], "shared_tree_overwrites": False}
+    return {"execution_id": data["execution_id"], "remote_code": data["remote_code"], "remote_run": data["remote_run"], "files": list(manifest["files"]), "bytes": sum(info["size"] for info in manifest["files"].values()), "deletions": [], "shared_tree_overwrites": False, "code_mode": data.get("code_mode", "snapshot"), "remote_input": input_location(data), "source_frozen": data.get("code_mode") != "remote"}
 
 
 def sync(project, data, remote):
     manifest = verify(project, data)
+    if data.get("code_mode") == "remote":
+        return sync_inputs(project, data, remote)
     root = str(PurePosixPath(data["remote_code"]).parent)
     owner = (data["manifest_sha256"] + "\n").encode()
     marker = root + "/SNAPSHOT_SHA256"
@@ -81,9 +83,51 @@ def sync(project, data, remote):
     return data
 
 
+def input_location(data):
+    return (data["remote_run"] + "/inputs/" if data.get("code_mode") == "remote" else data["remote_code"] + "/") + data["input"]
+
+
+def remote_identity(remote, code):
+    # Evidence only: mutable/untracked files are not a reproducible source snapshot.
+    result = {}
+    for label, args in (("commit", ["rev-parse", "HEAD"]), ("status", ["status", "--short"]), ("diff", ["diff", "--binary", "HEAD"])):
+        command = ["bash", "-c", 'set -o pipefail; git -C "$1" diff --binary HEAD | sha256sum', "clusterflow-identity", code] if label == "diff" else ["git", "-C", code, *args]
+        status, out, err = remote.exec(command)
+        result[label] = {"exit_code": status, "sha256": digest(out.encode())} if label == "diff" else {"exit_code": status, "output": out}
+    return result
+
+
+def sync_inputs(project, data, remote):
+    verify(project, data)
+    data["state"] = "PREPARED"
+    save_record(project, data, "remote_validation_started")
+    checked(remote, ["test", "-d", data["remote_code"]])
+    path = input_location(data)
+    payload = (execution_path(project, data["execution_id"]) / "source" / data["input"]).read_bytes()
+    if remote.exists(path):
+        if remote.read(path) != payload:
+            raise FlowError("Remote input conflict; refusing to overwrite.")
+    else:
+        remote.mkdirs(str(PurePosixPath(path).parent))
+        remote.write(path, payload, mode=0o444)
+    mapping = {"code": data["remote_code"], "input": path, "run": data["remote_run"], "tasks": str(project["resources"].get("tasks", 1))}
+    args = [expand(value, mapping) for value in data["project_config"]["remote_check_command"]]
+    status, out, err = remote.exec(args)
+    directory = execution_path(project, data["execution_id"])
+    (directory / "remote-check.stdout.log").write_text(out, encoding="utf-8")
+    (directory / "remote-check.stderr.log").write_text(err, encoding="utf-8")
+    if status or remote.read(path) != payload:
+        raise FlowError("Remote input validation failed or modified input; no submission prepared.")
+    data["check"] = {"argv": args, "exit_code": 0, "stage": "remote_passed"}
+    data["remote_identity"] = remote_identity(remote, data["remote_code"])
+    data["state"] = "SYNCED"
+    save_record(project, data, "input_synced_and_checked", remote_identity=data["remote_identity"])
+    return data
+
+
 def batch_script(data):
     project = data["project_config"]
-    mapping = {"code": data["remote_code"], "run": data["remote_run"], "input": data["remote_code"] + "/" + data["input"], "tasks": str(project["resources"].get("tasks", 1))}
+    mapping = {"code": data["remote_code"], "run": data["remote_run"], "input": input_location(data), "tasks": str(project["resources"].get("tasks", 1))}
     env = {"PYTHONDONTWRITEBYTECODE": "1", "CLUSTERFLOW_RUN_DIR": mapping["run"], "CLUSTERFLOW_INPUT": mapping["input"], "CLUSTERFLOW_RUN_ID": data["run_id"], "CLUSTERFLOW_EXECUTION_ID": data["execution_id"], **project["environment"]}
     lines = ["#!/bin/bash", "set -euo pipefail", "umask 077", "printf 'ClusterFlow job=%s host=%s\\n' \"${SLURM_JOB_ID:-unknown}\" \"$(hostname)\"", "date -u"]
     lines += ["export " + name + "=" + shlex.quote(expand(value, mapping)) for name, value in env.items()]
@@ -136,12 +180,18 @@ def submit(project, data, remote):
     # Revalidate every remote source byte; READY alone does not prove immutability.
     manifest = verify(project, data)
     for rel, info in manifest["files"].items():
-        if digest(remote.read(data["remote_code"] + "/" + rel)) != info["sha256"]:
+        target = input_location(data) if data.get("code_mode") == "remote" else data["remote_code"] + "/" + rel
+        if digest(remote.read(target)) != info["sha256"]:
             raise FlowError("Remote source changed since sync; submission stopped.")
     if data.get("parent_execution"):
         parent = record(project, data["parent_execution"])
         if not parent.get("job_id") or job_status(remote, parent["job_id"])["state"].split()[0] not in ("COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL", "PREEMPTED"):
             raise FlowError("Parent must be a confirmed terminal job before continuation.")
+    if data.get("code_mode") == "remote":
+        observed = remote_identity(remote, data["remote_code"])
+        if observed != data.get("remote_identity"):
+            raise FlowError("Remote Git evidence changed since validation; sync/check again before submission.")
+        data["source_guarantee"] = "Existing mutable remote code; Git evidence only, not a frozen source snapshot."
     config = data["project_config"]["resources"]
     data["resource_check"] = inspect_resources(remote, config)
     remote.mkdirs(data["remote_run"] + "/logs")

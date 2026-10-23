@@ -1,4 +1,4 @@
-# Command guide — 0.1.0b1
+# Command guide — 0.1.0b2
 
 Run commands with the Python environment in which the reviewed checkout was installed. From its root use `python scripts/clusterflow.py ...`; `clusterflow ...` is the equivalent installed CLI. Output is JSON (also accepts `--json`). Global `--home PATH` comes **before** the command and chooses a private per-user configuration directory, not a directory inside this repository.
 
@@ -122,3 +122,13 @@ This verifies the retained old snapshot, copies its actual source/input and laun
 ## Verification boundary
 
 This beta has automated fake SSH/storage/Slurm tests, not production-cluster acceptance. First test deployment/doctor, then trusted host fingerprint and login, bind a small reviewed project, and submit a cheap smoke case only on the user's request. Cross-AI discovery, real credential access, site scheduling and scientific regression need verification in the target environment. Keep secrets out of shared diagnostic output.
+
+## Existing remote code (input-only mode)
+
+Set `"code_mode": "remote"` and a reviewed `remote_check_command` argument array in project JSON (see examples/project.remote.example.json). Existing profiles without code_mode retain snapshot behavior. Bind with project add --trust-hooks, adding --replace for reviewed updates.
+
+Use the same prepare, sync preview, sync --yes, submit --yes, query, download, progress and guarded job controls. Prepare freezes only the selected regular input in local_source; it does not scan/copy solver code or run local check_command. Sync uploads input under the execution run directory and runs remote_check_command with {input}, {code}, {run}, {tasks} substitutions. Use absolute commands/paths or explicitly select the working directory. Remote check logs are saved locally; failed validation blocks submission. Launch runs in existing remote_source. Application output paths must explicitly target the execution run directory; environment variables alone are insufficient. Only input and per-job launch/log files are uploaded; existing remote code is neither overwritten nor sealed.
+
+Git HEAD, status and tracked diff hash are recorded at sync and compared before submission. Unavailable Git evidence is recorded for non-Git code. Remote code remains mutable: untracked contents and changes after submission are not protected. Do not claim source reproduction. Remote mode rejects --resume and --from-execution; configure an application-reviewed restart as a new input instead. Explicitly request code updates separately.
+
+For SinteringFEniCSx grouped VTX output, explicitly configure output.bp4_merge_executable with the verified cluster helper path. Missing output configuration can cause finalization failure after successful time stepping.
