@@ -1,0 +1,4 @@
+interface:
+  display_name: "ClusterFlow"
+  short_description: "Local-first cluster workflows with traceable Slurm runs"
+  default_prompt: "Use $clusterflow to prepare, validate, and submit a local case to my cluster with a reproducible run record."

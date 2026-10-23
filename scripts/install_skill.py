@@ -1,0 +1,10 @@
+"""Deploy a full skill checkout to an explicitly selected harness directory."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from clusterflow.cli import main
+
+if __name__ == "__main__":
+    raise SystemExit(main(["install-skill", *sys.argv[1:]]))

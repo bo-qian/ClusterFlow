@@ -1,0 +1,34 @@
+# Generated development artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+build/
+dist/
+.DS_Store
+Thumbs.db
+
+# Personal configuration, authentication and runtime artifacts must live outside this repo.
+.env
+.env.*
+.ssh/
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+known_hosts*
+config.toml
+config.local.*
+*.local.toml
+credentials*
+secrets*
+logs/
+runs/
+outputs/
+checkpoints/
+*.log
+.clusterflow-install.json
