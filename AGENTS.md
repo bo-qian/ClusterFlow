@@ -1,6 +1,7 @@
 # ClusterFlow development
 
 - Read `README.md` and the relevant contract under `references/` before editing.
+- README is user-facing only: installation prompt, setup, usage, features and necessary limitations. Keep architecture, test counts, contributor/developer commands and release engineering under `references/development.md` and `references/validation.md`, not in README or its folded sections.
 - `src/clusterflow/` is the only implementation. `scripts/clusterflow.py` is a thin source-checkout entry point; do not duplicate logic there.
 - Use simple modules/functions and explicit data. Add features when their implementation is needed, not speculative plugin registries or scheduler abstractions.
 - Preserve old CLI/config meanings unless a deliberate, documented change is requested. Add tests for every behavior implemented.
