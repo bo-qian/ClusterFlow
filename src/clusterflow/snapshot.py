@@ -74,6 +74,16 @@ def prepare(project, input_path, resume=None, timeout=600, source_execution=None
     label = readable_label(project, input_path, label)
     source = Path(project["local_source"])
     remote_mode = project.get("code_mode") == "remote"
+    required_source = {}
+    if remote_mode:
+        for rel in project.get("required_source_files", []):
+            selected = source / rel
+            if any(part.is_symlink() for part in (selected, *selected.parents)) or not selected.is_file() or SENSITIVE.search(selected.name):
+                raise FlowError(f"Required source must be a safe regular file: {rel}")
+            payload = selected.read_bytes()
+            if len(payload) > MAX_FILE or b"PRIVATE KEY-----" in payload:
+                raise FlowError(f"Unsafe or oversized required source: {rel}")
+            required_source[rel] = {"sha256": digest(payload), "size": len(payload)}
     if remote_mode:
         path = source / input_path
         if any(part.is_symlink() for part in (path, *path.parents)) or not path.is_file():
@@ -108,6 +118,8 @@ def prepare(project, input_path, resume=None, timeout=600, source_execution=None
             if key in project:
                 launch[key] = project[key]
         manifest = {"files": before, "input": input_path, "input_sha256": before[input_path]["sha256"], "launch": launch, "label": label, "job_name": job_name}
+        if required_source:
+            manifest["required_source"] = required_source
         import json
         manifest_hash = digest(json.dumps(manifest, sort_keys=True).encode())
         values = {"input": str(frozen / input_path), "code": str(frozen), "run": str(directory), "tasks": str(project["resources"].get("tasks", 1))}

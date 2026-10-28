@@ -34,6 +34,12 @@ Follow the prompt in `README.md` and the command guide: inspect the checkout, us
 
 For implementation or planning, read [the workflow contract](references/workflow.md). Before modifying simulation behavior or reproducing a historical case, also read [compatibility and reproduction](references/compatibility.md).
 
+### Pre-submission version gate
+
+Choose the tested code version intended for this task and verify the complete relevant workflow before submission: solver, configuration/initialization, output sampling, rendering and required dependencies. A local implementation or a matching PDE file does not prove the remote output code is updated. Configure `required_source_files` in remote-code project profiles so selected local hashes are frozen at prepare and verified against the actual remote files both at sync and immediately before submit. A mismatch blocks input upload/submission, including differences in untracked output helpers.
+
+Input-only mode describes what the normal transfer uploads; it is not permission to run known outdated code. If the user authorizes an update, prepare and validate the narrowly scoped deployment separately, account for jobs already using that code, then recheck before submission. Do not upload an entire framework or change a running scientific problem as a side effect. Python processes normally retain imported modules: changing files on disk does not retroactively update already running renderers. Inspect restart/loaded-code implications and obtain the matching task authorization before stopping or replacing active jobs.
+
 - Local source is authoritative for intended edits. Remote conflicts stop synchronization rather than being overwritten. No default remote deletion.
 - Bind reviewed `command` and `check_command` arrays with explicit user intent. Configure the application's own output paths outside code and actual environment before claiming the mapping is usable; environment variables exported by ClusterFlow are not automatically honored by every solver.
 - For a requested new case: edit local code/input, prepare and check the frozen copy, inspect sync preview, sync, inspect nodes, submit, then record the returned execution/job IDs in the research project's memory. Runtime records are local machine-readable evidence; a different AI still needs the research project's context.

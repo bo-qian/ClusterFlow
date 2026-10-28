@@ -1,4 +1,4 @@
-# Command guide — 0.1.0b3
+# Command guide — 0.1.0b4
 
 Run commands with the Python environment in which the reviewed checkout was installed. From its root use `python scripts/clusterflow.py ...`; `clusterflow ...` is the equivalent installed CLI. Output is JSON (also accepts `--json`). Global `--home PATH` comes **before** the command and chooses a private per-user configuration directory, not a directory inside this repository.
 
@@ -132,6 +132,10 @@ This beta has automated fake SSH/storage/Slurm tests, not production-cluster acc
 Set `"code_mode": "remote"` and a reviewed `remote_check_command` argument array in project JSON (see examples/project.remote.example.json). Existing profiles without code_mode retain snapshot behavior. Bind with project add --trust-hooks, adding --replace for reviewed updates.
 
 Use the same prepare, sync preview, sync --yes, submit --yes, query, download, progress and guarded job controls. Prepare freezes only the selected regular input in local_source; it does not scan/copy solver code or run local check_command. Sync uploads input under the execution run directory and runs remote_check_command with {input}, {code}, {run}, {tasks} substitutions. Use absolute commands/paths or explicitly select the working directory. Remote check logs are saved locally; failed validation blocks submission. Launch runs in existing remote_source. Application output paths must explicitly target the execution run directory; environment variables alone are insufficient. Only input and per-job launch/log files are uploaded; existing remote code is neither overwritten nor sealed.
+
+Configure `required_source_files` as a nonempty list of reviewed, relative code paths when the task selects a particular local version. Include output/rendering helpers as well as numerical modules. Prepare records their hashes in the checked manifest without uploading the code. Sync checks the actual remote bytes before input upload; submit checks again, so changed or missing files (including untracked helpers) block the run. Later local edits do not alter the recorded expected hashes. Existing profiles/records without this option retain their previous behavior; they do not acquire a claim that selected code versions match.
+
+Resolve a mismatch through a separately authorized, reviewed code update, then recheck the execution. Input-only mode never silently deploys code or edits application inputs to work around a mismatch. Active Python processes can retain older imported modules after an on-disk update, so inspect the impact on running jobs before changing shared files. A read-only dashboard must not disguise an old runtime renderer as an updated calculation.
 
 Git HEAD, status and tracked diff hash are recorded at sync and compared before submission. Unavailable Git evidence is recorded for non-Git code. Remote code remains mutable: untracked contents and changes after submission are not protected. Do not claim source reproduction. Remote mode rejects --resume and --from-execution; configure an application-reviewed restart as a new input instead. Explicitly request code updates separately.
 

@@ -98,11 +98,26 @@ def remote_identity(remote, code):
     return result
 
 
+def verify_required_source(project, data, remote):
+    manifest = verify(project, data)
+    selected = manifest.get("required_source", {})
+    mismatches = []
+    for rel, expected in selected.items():
+        path = data["remote_code"] + "/" + rel
+        if not remote.exists(path) or digest(remote.read(path)) != expected["sha256"]:
+            mismatches.append(rel)
+    data["required_source_check"] = {"configured": bool(selected), "checked_files": list(selected), "mismatches": mismatches}
+    if mismatches:
+        save_record(project, data, "required_source_mismatch", files=mismatches)
+        raise FlowError("Required remote code differs from the selected local version: " + ", ".join(mismatches) + ". Review/synchronize the selected code and recheck before submission; input-only mode does not upload code.")
+
+
 def sync_inputs(project, data, remote):
     verify(project, data)
     data["state"] = "PREPARED"
     save_record(project, data, "remote_validation_started")
     checked(remote, ["test", "-d", data["remote_code"]])
+    verify_required_source(project, data, remote)
     path = input_location(data)
     payload = (execution_path(project, data["execution_id"]) / "source" / data["input"]).read_bytes()
     if remote.exists(path):
@@ -194,6 +209,7 @@ def submit(project, data, remote):
         if not parent.get("job_id") or job_status(remote, parent["job_id"])["state"].split()[0] not in ("COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL", "PREEMPTED"):
             raise FlowError("Parent must be a confirmed terminal job before continuation.")
     if data.get("code_mode") == "remote":
+        verify_required_source(project, data, remote)
         observed = remote_identity(remote, data["remote_code"])
         if observed != data.get("remote_identity"):
             raise FlowError("Remote Git evidence changed since validation; sync/check again before submission.")

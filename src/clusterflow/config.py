@@ -3,7 +3,7 @@
 from pathlib import Path
 import re
 
-from .storage import FlowError, identifier, remote_path
+from .storage import FlowError, identifier, remote_path, relative_path
 
 
 def cluster_profile(name, host, user, port=22, auth="agent", key_file=None, jump=None):
@@ -81,7 +81,12 @@ def validate_project(data):
     result.setdefault("exclude", [])
     if not isinstance(result["exclude"], list) or any(not isinstance(value, str) for value in result["exclude"]):
         raise FlowError("exclude must be an array of glob patterns.")
-    allowed = {"code_mode", "remote_check_command", "name", "cluster", "local_source", "remote_source", "remote_runs", "local_results", "record_root", "command", "check_command", "resources", "environment", "exclude"}
+    if "required_source_files" in result:
+        selected = result["required_source_files"]
+        if not isinstance(selected, list) or not selected or any(not isinstance(value, str) for value in selected):
+            raise FlowError("required_source_files must be a nonempty array of relative code paths.")
+        result["required_source_files"] = list(dict.fromkeys(relative_path(value) for value in selected))
+    allowed = {"code_mode", "remote_check_command", "required_source_files", "name", "cluster", "local_source", "remote_source", "remote_runs", "local_results", "record_root", "command", "check_command", "resources", "environment", "exclude"}
     if set(result) - allowed:
         raise FlowError("Unknown project field(s); do not embed passwords or private settings in examples.")
     return result

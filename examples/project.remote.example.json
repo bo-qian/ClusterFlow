@@ -31,6 +31,11 @@
     "*.pdf"
   ],
   "code_mode": "remote",
+  "required_source_files": [
+    "run.py",
+    "solver.py",
+    "output/render.py"
+  ],
   "remote_check_command": [
     "/opt/solver/bin/python",
     "{code}/run.py",

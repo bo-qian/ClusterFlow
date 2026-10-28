@@ -14,6 +14,7 @@ Check capability status and the command guide before acting. The beta implements
 
 - Querying existing runs requires no source edits or test rerun. A new run uses local edits and inputs, with unresolved scientific choices clarified first.
 - Test the exact tree and inputs that will be uploaded. Prevent concurrent edits from changing a prepared artifact; verify manifest hashes before submission.
+- In remote-code mode, explicitly compare the selected tested local version against remote solver, initialization/configuration and output/rendering files using `required_source_files`. Matching only the PDE module or passing input validation is insufficient. A known mismatch must block submission until the separately reviewed/authorized deployment is verified; normal input-only transfer must not be used as a reason to run obsolete output code.
 - Snapshot source, input and resolved defaults with content hashes, Git commit plus uncommitted content when applicable, launch command, dependency/environment identifiers and seeds. A commit alone does not capture a dirty worktree. Exclude secrets, caches and bulk results.
 - Preview additions/changes; detect remote edits relative to the last verified sync. No blanket bidirectional merge, overwrite or remote `--delete`. Stage and validate uploads before promoting them.
 - Keep every execution's source/input artifact immutable, including while queued. Reuse verified content-addressed code artifacts when appropriate rather than copying complete environments and Git histories per run.

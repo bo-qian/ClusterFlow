@@ -34,3 +34,7 @@ Live input-only CLI acceptance: prepare/sync preview included one 1592-byte inpu
 Windows/Python 3.13.5: 78 automated tests, 76 passed and 2 POSIX-only checks skipped. Eleven added naming tests cover explicit/default labels, bounds and unsafe values, distinct identities for identical labels, unchanged application input bytes, frozen naming metadata, lost submission responses, exact identity matching (including prefix collisions), and historical records without naming metadata. Existing input-only and snapshot workflow tests pass.
 
 Scheduler names for new executions use readable case labels and a short uniqueness suffix. Older records retain their exact historical name derivation. Application run/output IDs are not rewritten. The new-name lifecycle and response recovery were tested against fake Slurm; these tests do not constitute a new live scientific submission.
+
+## 0.1.0b4 selected remote-source gate — 2026-10-28
+
+Windows/Python 3.13.5: 84 automated tests, 82 passed and 2 POSIX-only checks skipped. Six new tests verify matching selected source without code uploads, stale rendering code blocking before input upload, changed untracked output code blocking submit, missing local/remote files and unsafe configuration paths. Existing readable-name, legacy-record, snapshot and input-only tests remain passing. This checks intended selected file versions, not every mutable dependency or a source freeze after launch.
