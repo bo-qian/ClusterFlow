@@ -28,3 +28,9 @@ python scripts/clusterflow.py doctor --json
 Windows: 67 automated tests, 65 passed / 2 POSIX-only skipped. Eight new tests cover input-only upload, source preservation, remote validation failure/recheck invalidation, conflicting/tampered input, changed Git evidence, duplicate submission, missing hooks and historical-operation restrictions. Existing snapshot tests remain passing. Live integration evidence is recorded separately after installation.
 
 Live input-only CLI acceptance: prepare/sync preview included one 1592-byte input, sync validated on existing remote solver, submit/query reported job 8884 COMPLETED with exit 0:0. Download retrieved input/logs and explicitly requested application data; progress reported Step 2, Sim_Time 0.01. Grouped VTX finalization succeeded with an explicitly configured application helper. No solver code was uploaded. This is a short smoke test, not long-term numerical validation.
+
+## 0.1.0b3 readable job naming — 2026-10-28
+
+Windows/Python 3.13.5: 78 automated tests, 76 passed and 2 POSIX-only checks skipped. Eleven added naming tests cover explicit/default labels, bounds and unsafe values, distinct identities for identical labels, unchanged application input bytes, frozen naming metadata, lost submission responses, exact identity matching (including prefix collisions), and historical records without naming metadata. Existing input-only and snapshot workflow tests pass.
+
+Scheduler names for new executions use readable case labels and a short uniqueness suffix. Older records retain their exact historical name derivation. Application run/output IDs are not rewritten. The new-name lifecycle and response recovery were tested against fake Slurm; these tests do not constitute a new live scientific submission.

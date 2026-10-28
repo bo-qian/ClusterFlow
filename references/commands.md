@@ -1,4 +1,4 @@
-# Command guide — 0.1.0b2
+# Command guide — 0.1.0b3
 
 Run commands with the Python environment in which the reviewed checkout was installed. From its root use `python scripts/clusterflow.py ...`; `clusterflow ...` is the equivalent installed CLI. Output is JSON (also accepts `--json`). Global `--home PATH` comes **before** the command and chooses a private per-user configuration directory, not a directory inside this repository.
 
@@ -65,7 +65,7 @@ Supported substitutions in command/check/environment values:
 ## Prepare, preview, sync and submit
 
 ```text
-clusterflow prepare example-simulation --input inputs/case.toml
+clusterflow prepare example-simulation --input inputs/case.toml --label MODEL_G1_240x160_dt0p01
 clusterflow sync example-simulation EXECUTION
 clusterflow sync example-simulation EXECUTION --yes
 clusterflow nodes my-cluster
@@ -73,6 +73,10 @@ clusterflow submit example-simulation EXECUTION --yes
 ```
 
 Replace `EXECUTION` with the returned `execution_id`. `prepare` copies real bytes (including uncommitted changes), freezes launch settings and runs the project's check command. File/aggregate limits are 64/512 MiB. It excludes secrets, VTK/HDF5/Exodus-like fields and common caches/results; extra `exclude` globs apply to files. No source tests or expected baselines are automatically modified. Failed checks retain local failure logs but produce no submit-ready record. Later local source edits do not affect this execution.
+
+`--label` is a 1–64 character portable case description: ASCII letters, digits, underscores, hyphens and dots, starting with a letter or digit. Include scientific context such as model, case, mesh and `dt0p01`; do not collapse decimals to ambiguous `dt001`. If omitted, the label is derived from the project name and input stem. New scheduler names combine the label with a 12-character uniqueness suffix; both label and exact job name are frozen in the checked manifest and preview. The full UTC-based `execution_id` remains unchanged for tracking. Existing records without the new naming metadata retain their historical `cf_<execution_id>` job identity, including reconciliation and guarded release/cancellation.
+
+These names never change application output IDs. Keep the scientific program's existing rules; for programs whose default is the first Slurm job number, leave that default in place rather than inserting a descriptive input `run_id`. Explicit user-requested IDs and application restart requirements take precedence. The tool does not parse/rewrite the input to change IDs, and an upgrade does not rename live jobs, inputs or output directories. See [naming examples](../examples/naming.md).
 
 `sync` without `--yes` is an offline preview. With `--yes` it uploads to a fresh execution-specific subtree beneath `remote_source/clusterflow/`, verifies checksums and never updates the old remote working tree. Existing conflicting bytes stop the transfer; matching interrupted uploads can be continued. There is no remote delete command. `submit` rechecks the snapshot, inspects node capacity/states, submits held, records job ID, checks identity/time limit, then releases. Slurm decides scheduling; checking total capacity does not promise immediately idle resources or an instant start.
 

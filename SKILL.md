@@ -7,6 +7,14 @@ description: "Install and initialize ClusterFlow, bind local and remote project 
 
 Keep the user's natural workflow: interpret requests such as “modify this case and submit it” as local preparation followed by validation and a traceable cluster run. Do not ask users to repeat an already configured project mapping.
 
+## Job names and application output IDs
+
+- Give each new scientific case a readable `prepare --label`, including the model, study/case, mesh and time step when relevant, for example `MODEL_G1_240x160_dt0p01`. Use `p` as a decimal separator in labels rather than ambiguous strings such as `dt001`.
+- The scheduler name is the readable label plus a short uniqueness suffix. Keep the full immutable execution ID for internal records; do not use that opaque ID as the human case description. Without an explicit label, the tool derives one from the project and input filename.
+- Application run/output IDs belong to the scientific program. Follow its existing naming rules: if its default is the first Slurm job number, preserve that default. Do not insert a custom application `run_id` merely to make a descriptive label; use the ClusterFlow label instead. Explicit user-requested IDs and compatible restarts remain supported. ClusterFlow never rewrites the input's run ID.
+- Existing jobs keep their recorded names, IDs and output paths. A tool update must preserve their query/reconcile/release/cancel identity checks. Do not rename live scheduler jobs or move live result directories just to apply the new convention.
+- Distinguish the readable label, scheduler job name/number, ClusterFlow execution ID, and application run ID in summaries and dashboards. Record the mapping instead of calling them the same identifier.
+
 ## Capability gate
 
 This is a beta implementation; automated tests do not prove the user's live cluster is configured. From this skill's directory, use the chosen Python environment:

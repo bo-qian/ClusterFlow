@@ -10,6 +10,7 @@ import subprocess
 import uuid
 
 from .storage import FlowError, digest, execution_path, now, record, relative_path, save_record, write_json
+from .naming import readable_label, scheduler_name
 
 EXCLUDED = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".clusterflow", "outputs", "results", "checkpoints", "node_modules", "build", "dist", ".ssh"}
 SENSITIVE = re.compile(r"(^\.env($|\.)|^id_(rsa|ed25519)|\.(pem|key)$|^credentials|^secrets)", re.I)
@@ -52,7 +53,7 @@ def contents(source, excludes=()):
     return result
 
 
-def prepare(project, input_path, resume=None, timeout=600, source_execution=None):
+def prepare(project, input_path, resume=None, timeout=600, source_execution=None, label=None):
     if project.get("code_mode") == "remote" and (source_execution or resume):
         raise FlowError("Remote-code mode cannot reproduce frozen code or continue a historical execution; prepare a new reviewed input.")
     if source_execution:
@@ -70,6 +71,7 @@ def prepare(project, input_path, resume=None, timeout=600, source_execution=None
     if timeout < 1:
         raise FlowError("Check timeout must be positive.")
     input_path = relative_path(input_path)
+    label = readable_label(project, input_path, label)
     source = Path(project["local_source"])
     remote_mode = project.get("code_mode") == "remote"
     if remote_mode:
@@ -86,6 +88,7 @@ def prepare(project, input_path, resume=None, timeout=600, source_execution=None
         raise FlowError("Input must be a regular, included file inside local_source.")
     parent = record(project, resume) if resume else None
     execution = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "_" + uuid.uuid4().hex[:12]
+    job_name = scheduler_name(label, execution)
     directory = execution_path(project, execution)
     frozen = directory / "source"
     frozen.mkdir(parents=True, mode=0o700)
@@ -104,7 +107,7 @@ def prepare(project, input_path, resume=None, timeout=600, source_execution=None
         for key in ("code_mode", "remote_check_command"):
             if key in project:
                 launch[key] = project[key]
-        manifest = {"files": before, "input": input_path, "input_sha256": before[input_path]["sha256"], "launch": launch}
+        manifest = {"files": before, "input": input_path, "input_sha256": before[input_path]["sha256"], "launch": launch, "label": label, "job_name": job_name}
         import json
         manifest_hash = digest(json.dumps(manifest, sort_keys=True).encode())
         values = {"input": str(frozen / input_path), "code": str(frozen), "run": str(directory), "tasks": str(project["resources"].get("tasks", 1))}
@@ -123,6 +126,7 @@ def prepare(project, input_path, resume=None, timeout=600, source_execution=None
         data = {
             "project": project["name"], "cluster": project["cluster"],
             "execution_id": execution, "run_id": parent["run_id"] if parent else execution,
+            "label": label, "job_name": job_name,
             "parent_execution": resume, "created": now(), "state": "PREPARED",
             "reproduces_execution": source_execution,
             "manifest_sha256": manifest_hash, "input": input_path,
@@ -153,6 +157,8 @@ def verify(project, data):
     manifest = read_json(directory / "manifest.json")
     if digest(json.dumps(manifest, sort_keys=True).encode()) != data["manifest_sha256"]:
         raise FlowError("Snapshot manifest was modified after checking.")
+    if "job_name" in manifest and any(manifest[key] != data.get(key) for key in ("label", "job_name")):
+        raise FlowError("Checked job naming was modified; prepare a new execution.")
     if manifest["launch"] != {key: data["project_config"][key] for key in manifest["launch"]}:
         raise FlowError("Checked launch settings were modified; prepare a new execution.")
     if contents(directory / "source", data["project_config"]["exclude"]) != manifest["files"]:

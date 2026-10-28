@@ -12,6 +12,7 @@ import uuid
 
 from .snapshot import expand, verify
 from .storage import FlowError, digest, execution_path, lock, record, relative_path, save_record
+from .naming import recorded_job_name
 
 
 def checked(remote, arguments):
@@ -46,7 +47,7 @@ def inspect_resources(remote, config):
 
 def preview(project, data):
     manifest = verify(project, data)
-    return {"execution_id": data["execution_id"], "remote_code": data["remote_code"], "remote_run": data["remote_run"], "files": list(manifest["files"]), "bytes": sum(info["size"] for info in manifest["files"].values()), "deletions": [], "shared_tree_overwrites": False, "code_mode": data.get("code_mode", "snapshot"), "remote_input": input_location(data), "source_frozen": data.get("code_mode") != "remote"}
+    return {"execution_id": data["execution_id"], "label": data.get("label"), "job_name": job_name(data), "remote_code": data["remote_code"], "remote_run": data["remote_run"], "files": list(manifest["files"]), "bytes": sum(info["size"] for info in manifest["files"].values()), "deletions": [], "shared_tree_overwrites": False, "code_mode": data.get("code_mode", "snapshot"), "remote_input": input_location(data), "source_frozen": data.get("code_mode") != "remote"}
 
 
 def sync(project, data, remote):
@@ -136,7 +137,12 @@ def batch_script(data):
 
 
 def job_name(data):
-    return "cf_" + data["execution_id"]
+    return recorded_job_name(data)
+
+
+def identity_matches(details, data):
+    match = re.search(r"(?:^|\s)JobName=(\S+)", details)
+    return match is not None and match.group(1) == job_name(data)
 
 
 def job_status(remote, job):
@@ -159,7 +165,7 @@ def release(project, data, remote):
         raise FlowError("No confirmed job ID; reconcile first.")
     # Failure leaves a known held job; callers must not submit it again.
     details = checked(remote, ["scontrol", "show", "job", "-o", job])
-    if f"JobName={job_name(data)}" not in details:
+    if not identity_matches(details, data):
         raise FlowError("Job identity does not match this execution; refusing to release.")
     if not re.search(r"JobState=PENDING\b", details) or "JobHeldUser" not in details:
         raise FlowError("Only this execution's user-held pending job can be released.")
@@ -255,7 +261,7 @@ def cancel(project, data, remote):
     if not data.get("job_id"):
         raise FlowError("No confirmed job ID to cancel.")
     details = checked(remote, ["scontrol", "show", "job", "-o", data["job_id"]])
-    if f"JobName={job_name(data)}" not in details:
+    if not identity_matches(details, data):
         raise FlowError("Job identity changed; cancellation refused.")
     checked(remote, ["scancel", data["job_id"]])
     save_record(project, data, "cancellation_requested", job_id=data["job_id"])

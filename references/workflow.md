@@ -22,6 +22,7 @@ Check capability status and the command guide before acting. The beta implements
 
 - Read site-configured resource preferences and inspect actual scheduler state. Never universalize one cluster's node names or unlimited walltime preference.
 - Record an operation identity before submitting. Capture job ID and verify effective resources. If the response is lost, reconcile the operation against scheduler evidence; stop for resolution if ambiguity remains, rather than resubmitting.
+- Freeze a readable case label and exact scheduler job name separately from the immutable execution ID. Preserve the application's normal run/output IDs; do not override a default numeric Slurm-based application run ID for a descriptive name. Existing execution names and paths remain unchanged after an upgrade.
 - Separate scheduler state, application completion, exit status and output validation. No output is not proof of success. Report CSV/log disagreement rather than silently selecting stale data.
 - Retrieval defaults to input/CSV/logs. Download to temporary paths, validate, then publish atomically; same size alone is not proof of identical content. Preserve useful partial data without treating it as complete.
 - Records use append-only events plus derived summaries. Include operation/run/execution IDs, snapshot digest, input, resources, observed state, failures, transfer manifest and comparison outcome. Redact secrets and unnecessary personal data; never store command lines containing passwords.

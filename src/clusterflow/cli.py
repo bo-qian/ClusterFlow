@@ -141,7 +141,7 @@ def dispatch(args):
         from .snapshot import prepare
         if args.resume and not args.confirm_resume:
             raise FlowError("Review checkpoint/physical compatibility, then provide --confirm-resume.")
-        return prepare(project, args.input, args.resume, args.check_timeout, args.from_execution)
+        return prepare(project, args.input, args.resume, args.check_timeout, args.from_execution, args.label)
     if args.command == "runs":
         return {"executions": [read_json(path) for path in sorted((Path(project["record_root"]) / "executions").glob("*/record.json"))]}
     from . import jobs
@@ -219,6 +219,7 @@ def make_parser():
     item = command("prepare", help="Prepare input-only remote runs or checked source snapshots.")
     item.add_argument("project")
     item.add_argument("--input", required=True)
+    item.add_argument("--label", help="Readable job label, e.g. MODEL_G1_240x160_dt0p01; does not change application output IDs.")
     item.add_argument("--resume", help="Parent execution; checkpoint settings remain application-owned.")
     item.add_argument("--from-execution", help="Reproduce a verified historical snapshot as a new run.")
     item.add_argument("--confirm-resume", action="store_true")
