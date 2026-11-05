@@ -47,7 +47,7 @@ class GroupSiteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "skill"
             install(ROOT, target)
-            deployed = json.loads((target / "src/clusterflow/data/group-cluster.json").read_text())
+            deployed = json.loads((target / "src/clusterflow/data/group-cluster.json").read_text(encoding="utf-8"))
             self.assertEqual(deployed, site_profile())
             self.assertTrue((target / "references/group-cluster.md").is_file())
             self.assertTrue((target / "src/clusterflow/joblist.py").is_file())

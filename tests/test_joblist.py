@@ -3,6 +3,7 @@ import contextlib
 import io
 from pathlib import Path
 import re
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -40,6 +41,46 @@ class ParsingTests(unittest.TestCase):
                          {'count': 3, 'indices': [0, 2, 3], 'indices_known': True})
         self.assertEqual(j.gpu_resources('gpu:4(S:0-1)')['count'], 4)
         self.assertEqual(j.gpu_resources('gpu:rtx_4090:0(IDX:N/A)')['indices'], [])
+
+    def test_partial_gpu_indices_are_not_a_complete_allocation_map(self):
+        for gres in ('gpu:a100:1(IDX:0),gpu:h100:1', 'gpu:2(IDX:0)', 'gpu:1(IDX:N/A)'):
+            with self.subTest(gres=gres):
+                self.assertFalse(j.gpu_resources(gres)['indices_known'])
+        self.assertTrue(j.gpu_resources('gpu:0')['indices_known'])
+        self.assertFalse(j.gpu_resources('(null)')['indices_known'])
+
+    def test_missing_gpu_indices_never_make_an_unmapped_card_look_free(self):
+        sample = {'time': 'test', 'cache_seconds': 10, 'memory_scheduling': False, 'select_parameters': 'CR_CPU',
+                  'nodes': [{'slurm': {'NodeName': 'node5', 'Gres': 'gpu:2', 'GresUsed': 'gpu:a100:1(IDX:0),gpu:h100:1'},
+                             'live': {'gpus': [{'index': index, 'name': 'GPU', 'uuid': 'GPU-' + str(index),
+                                               'util_percent': 0, 'memory_used_mib': 0, 'memory_total_mib': 100}
+                                              for index in (0, 1)]}, 'jobs': []}]}
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            j.display(sample)
+        self.assertIn('#0 GPU | ALLOCATED', output.getvalue())
+        self.assertIn('#1 GPU | allocation unknown', output.getvalue())
+        self.assertNotIn('UNALLOCATED', output.getvalue())
+
+    def test_timeout_reaps_the_local_probe_process(self):
+        code, _, _ = j.run([sys.executable, '-c', 'import time; time.sleep(10)'], timeout=0.1)
+        self.assertEqual(code, 124)
+
+    def test_installed_entrypoint_reports_failures_without_a_traceback(self):
+        for error in (FileNotFoundError('scontrol is unavailable'), RuntimeError('Slurm query failed')):
+            output = io.StringIO()
+            with self.subTest(error=error), patch.object(j, 'main', side_effect=error), contextlib.redirect_stderr(output):
+                self.assertEqual(j.entrypoint(['--slurm-only']), 1)
+            self.assertIn('joblist:', output.getvalue())
+            self.assertNotIn('Traceback', output.getvalue())
+
+    def test_nonfinite_timeouts_and_cache_values_are_rejected_before_commands(self):
+        for arguments in (['--timeout', 'nan'], ['--timeout', 'inf'], ['--cache-seconds', 'nan'], ['--cache-seconds', 'inf']):
+            with self.subTest(arguments=arguments), patch.object(j, 'run') as run, contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as error:
+                    j.main(arguments)
+                self.assertEqual(error.exception.code, 2)
+                run.assert_not_called()
 
     def test_gpu_job_and_array_zero(self):
         text = ('JobId=10 ArrayJobId=9 ArrayTaskId=0 JobName=idle GPU allocation UserId=alice(1) '

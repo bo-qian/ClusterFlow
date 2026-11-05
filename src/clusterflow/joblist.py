@@ -6,6 +6,7 @@ import concurrent.futures
 import csv
 import io
 import json
+import math
 import os
 import re
 import signal
@@ -39,7 +40,10 @@ def run(argv, timeout=8):
         return p.returncode, out, err
     except subprocess.TimeoutExpired:
         try:
-            os.killpg(p.pid, signal.SIGKILL)
+            if os.name == 'posix':
+                os.killpg(p.pid, signal.SIGKILL)
+            else:
+                p.kill()
         except ProcessLookupError:
             pass
         out, err = p.communicate()
@@ -65,14 +69,18 @@ def indices(value):
 
 
 def gpu_resources(value):
-    count, devices, has_indices = 0, set(), False
+    count, devices, complete, seen = 0, set(), True, False
     for m in re.finditer(r'(?:^|,)gpu(?::([^:,()]+))?:(\d+)(?:\(([^)]*)\))?', value or ''):
-        count += int(m.group(2))
+        seen = True
+        amount = int(m.group(2))
+        count += amount
         detail = m.group(3) or ''
-        if detail.startswith('IDX:'):
-            has_indices = True
-            devices.update(indices(detail[4:]))
-    return {'count': count, 'indices': sorted(devices), 'indices_known': has_indices}
+        mapped = indices(detail[4:]) if detail.startswith('IDX:') else []
+        if len(mapped) != amount:
+            complete = False
+        devices.update(mapped)
+    return {'count': count, 'indices': sorted(devices),
+            'indices_known': seen and complete and len(devices) == count}
 
 
 def expand_hosts(spec):
@@ -165,6 +173,8 @@ def probe(node, timeout, cache_seconds, refresh):
     previous = None
     try:
         directory = os.path.join(os.path.expanduser('~'), '.cache', 'joblist-v2')
+        if os.name != 'posix':
+            raise ValueError('Private snapshot caching requires POSIX permissions')
         os.makedirs(directory, mode=0o700, exist_ok=True)
         st = os.lstat(directory)
         if os.path.islink(directory) or st.st_uid != os.geteuid() or st.st_mode & 0o077:
@@ -317,8 +327,10 @@ def display(data, color=False):
                         owners.setdefault(index, []).append(job['id'])
                 for g in live_gpus:
                     index = g['index']
-                    if allocated is not None and allocated['indices_known']:
-                        status = 'ALLOCATED' if index in allocated['indices'] else 'UNALLOCATED'
+                    if allocated is not None and index in allocated['indices']:
+                        status = 'ALLOCATED'
+                    elif allocated is not None and allocated['indices_known']:
+                        status = 'UNALLOCATED'
                     else:
                         status = 'allocation unknown'
                     nproc = sum(1 for proc in live.get('processes', []) if proc['uuid'] == g['uuid'])
@@ -356,7 +368,7 @@ def main(argv=None):
     parser.add_argument('--color', choices=('auto', 'always', 'never'), default='auto',
                         help='Terminal colors (default auto; redirected/JSON output stays plain)')
     args = parser.parse_args(argv)
-    if args.timeout <= 0 or args.timeout > 120 or args.cache_seconds < 0 or args.cache_seconds > 3600:
+    if not math.isfinite(args.timeout) or not math.isfinite(args.cache_seconds) or args.timeout <= 0 or args.timeout > 120 or args.cache_seconds < 0 or args.cache_seconds > 3600:
         parser.error('timeout must be in (0,120]; cache-seconds must be in [0,3600]')
     commands = [['scontrol', 'show', 'nodes', '-d', '-o'],
                 ['scontrol', 'show', 'jobs', '-d', '-o'], ['scontrol', 'show', 'config']]
@@ -390,9 +402,14 @@ def main(argv=None):
     return 0
 
 
-if __name__ == '__main__':
+def entrypoint(argv=None):
+    """Use the same concise errors for the installed command and script."""
     try:
-        sys.exit(main())
+        return main(argv)
     except (RuntimeError, OSError, ValueError) as error:
         print('joblist: {}'.format(error), file=sys.stderr)
-        sys.exit(1)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(entrypoint())

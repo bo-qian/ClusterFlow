@@ -46,16 +46,28 @@ def inspect_resources(remote, config):
             raise FlowError("First beta accepts a single literal nodelist node; leave it unset for scheduler selection.")
         candidates = [row for row in candidates if row.get("node") == nodes]
     healthy = [row for row in candidates if not any(bad in row.get("state", "").lower() for bad in ("down", "drain", "fail", "maint", "resv", "unk"))]
-    tasks = config.get("tasks", 1) * config.get("cpus_per_task", 1)
+    cpus_per_task = config.get("cpus_per_task", 1)
+    node_count = config.get("nodes")
+    tasks = config.get("tasks", node_count or 1)
     memory = config.get("memory_mb", 0)
-    healthy = [row for row in healthy if int(row.get("cpus", "0")) * config.get("nodes", 1) >= tasks and int(row.get("memory_mb", "0")) >= memory]
+    healthy = [row for row in healthy if int(row.get("cpus", "0")) >= cpus_per_task and int(row.get("memory_mb", "0")) >= memory]
     if config.get("gpus_per_node"):
         healthy = [row for row in healthy if gpu_capacity(row.get("gres"), config.get("gpu_type")) >= config["gpus_per_node"]]
-        if len({row["node"] for row in healthy}) < config.get("nodes", 1):
-            raise FlowError("Not enough healthy nodes match the requested GPU type/count per node. No submission was made.")
-    if not healthy:
-        raise FlowError("No healthy node matches configured partition/node/CPU/memory capacity. Inspect resources before submitting.")
-    return healthy
+    # A task's CPUs must fit on one node. Count whole task slots on distinct
+    # nodes in one partition; multiplying one node's capacity invents nodes
+    # and rejects valid heterogeneous allocations.
+    partitions = {}
+    for row in healthy:
+        partitions.setdefault(row.get("partition", "").rstrip("*"), {}).setdefault(row["node"], row)
+    suitable = []
+    for members in partitions.values():
+        slots = sorted((int(row["cpus"]) // cpus_per_task for row in members.values()), reverse=True)
+        if len(slots) < (node_count or 1) or sum(slots[:node_count]) < tasks:
+            continue
+        suitable.extend(members.values())
+    if not suitable:
+        raise FlowError("No healthy node set matches configured partition/node/CPU/memory/GPU capacity. No submission was made; inspect resources before submitting.")
+    return suitable
 
 
 def preview(project, data):

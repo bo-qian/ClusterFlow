@@ -63,3 +63,9 @@ The group observations come from separately authorized live read-only checks and
 Interactive color and plain redirected/JSON output were checked. Follow-up display checks preserve one memory line per node and omit GPU placeholders/zero columns on CPU-only nodes. Existing scientific jobs continued running during those checks; no claim is made about numerical validation of those jobs.
 
 Still not verified/configured: a group FEniCSx CUDA/PETSc environment, scientific GPU speedup/correctness, a shared project mapping, and consumable-memory scheduling. The site file intentionally stores none of the changing queue/usage/free-space values or members' credentials and private paths. Updating or publishing this source does not authorize new cluster mutations.
+
+### PR #2 review follow-up — 2026-11-05
+
+Windows/Python 3.13.5: **131 tests, 129 passed and 2 POSIX-specific skips**. WSL/Debian/Python 3.11.2: **all 131 passed**. The Windows dependency check and offline doctor passed, as did the bundled skill validator in UTF-8 mode and whitespace checks. The standalone monitor passed a Python 3.6 syntax parse; this follow-up did not execute the revised source in a Python 3.6 runtime.
+
+Review corrected UTF-8 decoding in the deployment test; per-task CPU placement and distinct-node/partition feasibility (including heterogeneous nodes, fragmented CPUs and implicit node selection); incomplete GPU index maps that could mislabel unmapped devices as free; and consistent installed-command error handling, finite time/cache arguments and cross-platform timeout cleanup. Twelve additional regressions exercise those cases. Monitor snapshot caching remains private and POSIX-only. No live cluster, user configuration, active skill installation or scientific job was changed by this repository-only follow-up.

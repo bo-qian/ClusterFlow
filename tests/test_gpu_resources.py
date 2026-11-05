@@ -71,6 +71,49 @@ class GPUResourceTests(unittest.TestCase):
         with self.assertRaises(FlowError):
             jobs.inspect_resources(self.remote, config)
 
+    def test_one_task_cannot_span_nodes_even_when_total_cpus_fit(self):
+        self.remote.rows = "node2|cpu*|idle|16|750000|gpu:rtx_4090:4\nnode3|cpu*|idle|16|750000|gpu:rtx_4090:4\n"
+        self.project["resources"].pop("nodelist")
+        self.project["resources"].update(nodes=2, tasks=2, cpus_per_task=24)
+        project, data = self.submit()
+        with self.assertRaises(FlowError):
+            jobs.submit(project, data, self.remote)
+        self.assertEqual(self.remote.submissions, 0)
+        self.assertFalse(any(call[0] == "sbatch" for call in self.remote.calls))
+
+    def test_heterogeneous_node_capacities_can_combine(self):
+        self.remote.rows = "node2|cpu*|idle|16|750000|gpu:rtx_4090:4\nnode3|cpu*|idle|48|750000|gpu:rtx_4090:4\n"
+        config = dict(self.project["resources"], nodes=2, tasks=8, cpus_per_task=8)
+        config.pop("nodelist")
+        self.assertEqual({row["node"] for row in jobs.inspect_resources(self.remote, config)}, {"node2", "node3"})
+
+    def test_task_slots_cannot_combine_cpu_fragments_between_nodes(self):
+        self.remote.rows = "node2|cpu*|idle|12|750000|gpu:rtx_4090:4\nnode3|cpu*|idle|12|750000|gpu:rtx_4090:4\n"
+        config = dict(self.project["resources"], nodes=2, tasks=3, cpus_per_task=8)
+        config.pop("nodelist")
+        with self.assertRaises(FlowError):
+            jobs.inspect_resources(self.remote, config)
+
+    def test_cpu_only_request_needs_distinct_nodes(self):
+        self.remote.rows = "node2|cpu*|idle|64|750000|(null)\n" * 2
+        with self.assertRaises(FlowError):
+            jobs.inspect_resources(self.remote, {"nodes": 2, "tasks": 2})
+
+    def test_scheduler_can_choose_multiple_nodes_when_count_is_omitted(self):
+        self.remote.rows = "node2|cpu*|idle|16|750000|(null)\nnode3|cpu*|idle|16|750000|(null)\n"
+        result = jobs.inspect_resources(self.remote, {"tasks": 3, "cpus_per_task": 8})
+        self.assertEqual({row["node"] for row in result}, {"node2", "node3"})
+
+    def test_capacity_cannot_be_combined_across_partitions(self):
+        self.remote.rows = "node2|cpu*|idle|16|750000|(null)\nnode3|other|idle|16|750000|(null)\n"
+        with self.assertRaises(FlowError):
+            jobs.inspect_resources(self.remote, {"tasks": 3, "cpus_per_task": 8})
+
+    def test_explicit_node_limit_cannot_use_extra_nodes_capacity(self):
+        self.remote.rows = "node2|cpu*|idle|16|750000|(null)\nnode3|cpu*|idle|16|750000|(null)\n"
+        with self.assertRaises(FlowError):
+            jobs.inspect_resources(self.remote, {"nodes": 1, "tasks": 3, "cpus_per_task": 8})
+
     def test_resource_validation_rejects_invalid_counts_and_type_injection(self):
         for key, value in (("gpus_per_node", 0), ("gpus_per_node", True), ("gpus_per_node", "1"),
                            ("cpus_per_task", -1), ("gpu_type", "rtx:4"), ("gpu_type", "rtx --other")):
