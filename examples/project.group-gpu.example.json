@@ -1,0 +1,13 @@
+{
+  "name": "YOUR_PROJECT",
+  "cluster": "Cluster",
+  "local_source": "/ABSOLUTE/LOCAL/SOURCE",
+  "remote_source": "/home/YOUR_USER/projects/YOUR_PROJECT",
+  "remote_runs": "/home/YOUR_USER/runs/YOUR_PROJECT",
+  "local_results": "/ABSOLUTE/LOCAL/RESULTS",
+  "command": ["/ABSOLUTE/REVIEWED_GPU_ENV/bin/python", "{code}/run.py", "--input", "{input}", "--output", "{run}"],
+  "check_command": ["/ABSOLUTE/LOCAL_ENV/bin/python", "{code}/run.py", "--check-config", "--input", "{input}"],
+  "resources": {"partition": "cpu", "nodelist": "node5", "nodes": 1, "tasks": 1, "cpus_per_task": 8, "memory_mb": 32768, "gpus_per_node": 1, "gpu_type": "rtx_4090", "time": "00:30:00"},
+  "environment": {},
+  "exclude": []
+}
