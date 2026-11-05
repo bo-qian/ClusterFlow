@@ -1,11 +1,17 @@
 ---
 name: clusterflow
-description: "Install and initialize ClusterFlow, bind local and remote project directories, prepare checked simulation snapshots, and submit/query/download Slurm jobs with traceable records. Use for cluster case workflows, including guarded cancellation and application-owned continuation."
+description: "Install and initialize ClusterFlow, use the group's Cluster/node1–6 profile, inspect CPU/GPU resources, bind projects, and submit/query/download checked Slurm runs. Use for cluster case workflows, guarded cancellation and application-owned continuation."
 ---
 
 # ClusterFlow
 
 Keep the user's natural workflow: interpret requests such as “modify this case and submit it” as local preparation followed by validation and a traceable cluster run. Do not ask users to repeat an already configured project mapping.
+
+## Group cluster context
+
+This repository includes the opt-in `group-cluster` site. For requests about our/group Cluster, node1–6 or its GPU environment, read [the group cluster operating profile](references/group-cluster.md) before rediscovering infrastructure or asking for shared facts. `python scripts/clusterflow.py site show group-cluster` reads its structured profile offline. Hardware, software, node5 GPU scheduling, joblist conventions and unresolved memory limits were observed on 2026-11-05; these are not live capacity. Keep other clusters generic.
+
+Use existing personal connection/project profiles first. For a new member, `init --site group-cluster --user THEIR_USER` pre-fills shared host/alias only; human-operated local trust/password prompts remain. Never copy another member's account, credentials or private project paths. Refresh states, allocations, memory, GPU activity and the selected environment before deciding what can run. GPU scheduling is ready; a CUDA-enabled FEniCSx/PETSc environment is not yet verified. Site knowledge does not authorize administration.
 
 ## Job names and application output IDs
 

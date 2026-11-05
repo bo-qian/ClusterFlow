@@ -1,6 +1,23 @@
-# Command guide — 0.1.0b5
+# Command guide — 0.1.0b6
 
 Run commands with the Python environment in which the reviewed checkout was installed. From its root use `python scripts/clusterflow.py ...`; `clusterflow ...` is the equivalent installed CLI. Output is JSON (also accepts `--json`). Global `--home PATH` comes **before** the command and chooses a private per-user configuration directory, not a directory inside this repository.
+
+## Group site observations (offline)
+
+```text
+clusterflow site list
+clusterflow site show group-cluster
+```
+
+The bundled site records the group's shared entry, heterogeneous CPU/GPU capacities, software paths, joblist conventions and unresolved memory limits. It is dated reference data, not live capacity, personal configuration or host-key trust. These commands never connect, read credentials, or create configuration. The JSON is included in wheels and full skill deployments. Read [the group operating profile](group-cluster.md) for context and refresh rules.
+
+New group members may prefill only the common host/alias:
+
+```text
+clusterflow init --site group-cluster --user YOUR_USER --auth password
+```
+
+Run in the user's local terminal. Existing aliases still require deliberate replacement; explicit host/alias flags win. No username or credential is copied from the site. Trust/password handling below is unchanged; other clusters do not inherit this site implicitly.
 
 ## Install the full skill
 
@@ -68,7 +85,15 @@ Supported substitutions in command/check/environment values:
 | `{run}` | Execution's run directory (local during checks, remote during launch) |
 | `{tasks}` | Configured MPI/Slurm task count |
 
-`environment` maps reviewed non-secret variable names to strings. Set interpreter/conda/module initialization in an explicit launch script or reviewed command. ClusterFlow does not install or guess the solver environment. `resources` accepts `partition`, `account`, `tasks`, `nodes`, `memory_mb`, one literal `nodelist`, and optional Slurm `time`. No finite time limit is added by default; use `"time": "0"` only where the site permits unlimited time, which is checked before release.
+`environment` maps reviewed non-secret variable names to strings. Set interpreter/conda/module initialization in an explicit launch script or reviewed command. ClusterFlow does not install or guess the solver environment.
+
+`resources` accepts `partition`, `account`, `tasks`, `nodes`, `cpus_per_task`, `memory_mb`, one literal `nodelist`, optional Slurm `time`, and whole-device `gpus_per_node` with optional `gpu_type`. Counts are positive integers; the type accepts letters, digits and underscores and requires a GPU count. These map to `--cpus-per-task` and `--gres=gpu[:TYPE]:COUNT`. CPU-only profiles remain CPU-only. Inspection checks configured CPU capacity including threads per task and typed GPU capacity on enough candidate nodes, not immediately idle resources. Slurm schedules and isolates devices. `memory_mb` is host memory, not VRAM; tracking/enforcement depends on site configuration.
+
+Each task's CPUs must fit on one node. Inspection counts whole task slots on distinct eligible nodes within one partition, respecting an explicit node count and per-node memory/GPU requirements. Heterogeneous node capacities may combine; CPU fragments across nodes or capacities across partitions may not. Without `nodes`, the scheduler can select enough eligible nodes for the task count. These are configured-capacity checks, not a guarantee of current availability or partition/account access. See the [Slurm task and CPU options](https://slurm.schedmd.com/sbatch.html#OPT_cpus-per-task).
+
+For the group, `partition=cpu`, `nodelist=node5`, `gpus_per_node=1`, `gpu_type=rtx_4090` requests one card. The [group GPU example](../examples/project.group-gpu.example.json) contains placeholders for personal paths and application-owned launch/check commands; review and replace them. Its GPU environment path is not an installed or verified FEniCSx environment.
+
+No finite time limit is added by default; use `"time": "0"` only where the site permits unlimited time, which is checked before release.
 
 **Application outputs must be directed outside the immutable code snapshot.** The wrapper exports `CLUSTERFLOW_RUN_DIR`, `CLUSTERFLOW_INPUT`, `CLUSTERFLOW_RUN_ID` and `CLUSTERFLOW_EXECUTION_ID`; the application does not automatically honor these. Configure its own output/input settings or launch wrapper accordingly. Use `{run}` in environment/command if supported by the application. No TOML or physical defaults are rewritten for you. Missing external meshes/data/environments must be staged separately and explicitly referenced; symlinks are not expanded into snapshots.
 

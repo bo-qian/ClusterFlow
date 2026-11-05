@@ -63,11 +63,14 @@ def validate_project(data):
     result["command"] = argv(result.get("command"), "command")
     result["check_command"] = argv(result.get("check_command"), "check_command")
     resources = result.setdefault("resources", {})
-    if not isinstance(resources, dict) or set(resources) - {"partition", "account", "tasks", "nodes", "memory_mb", "nodelist", "time"}:
+    if not isinstance(resources, dict) or set(resources) - {"partition", "account", "tasks", "nodes", "cpus_per_task", "memory_mb", "nodelist", "time", "gpus_per_node", "gpu_type"}:
         raise FlowError("Unsupported Slurm resource key.")
-    for key in ("tasks", "nodes", "memory_mb"):
+    for key in ("tasks", "nodes", "cpus_per_task", "memory_mb", "gpus_per_node"):
         if key in resources and (type(resources[key]) is not int or resources[key] < 1):
             raise FlowError(f"resources.{key} must be a positive integer.")
+    if "gpu_type" in resources:
+        if "gpus_per_node" not in resources or not isinstance(resources["gpu_type"], str) or not re.fullmatch(r"[A-Za-z0-9_]+", resources["gpu_type"]):
+            raise FlowError("resources.gpu_type requires gpus_per_node and a literal GPU type (letters, digits, underscores).")
     for key in ("partition", "account", "nodelist", "time"):
         if key in resources and not re.fullmatch(r"[A-Za-z0-9_.,:+\[\]-]+", str(resources[key])):
             raise FlowError(f"Invalid resources.{key}.")

@@ -11,7 +11,7 @@ import warnings
 from . import __version__
 from .storage import FlowError, Store, execution_path, lock, read_json, record, save_record
 
-COMMANDS = ["status", "doctor", "install-skill", "init", "auth", "project", "prepare", "sync", "submit", "nodes", "query", "reconcile", "release", "cancel", "download", "progress", "runs"]
+COMMANDS = ["status", "doctor", "site", "install-skill", "init", "auth", "project", "prepare", "sync", "submit", "nodes", "query", "reconcile", "release", "cancel", "download", "progress", "runs"]
 
 
 def capability_report():
@@ -54,11 +54,18 @@ def setup(store, args):
             raise FlowError("Missing setup information; supply host/user flags or use an interactive local terminal.")
         return input(prompt).strip()
 
-    name = required(args.name, "Cluster alias: ")
+    site = None
+    if getattr(args, "site", None):
+        from .sites import site_profile
+        site = site_profile(args.site)
+    defaults = site["connection"] if site else {}
+    name = required(args.name or defaults.get("suggested_alias"), "Cluster alias: ")
     if name in store.names("clusters") and not args.replace:
         raise FlowError("Cluster already exists; use --replace deliberately or 'auth set' for password rotation.")
-    profile = cluster_profile(name, required(args.host, "Host: "), required(args.user, "Username: "),
+    profile = cluster_profile(name, required(args.host or defaults.get("host"), "Host: "), required(args.user, "Username: "),
                               args.port, args.auth, args.key_file, args.jump)
+    if site:
+        profile["site"] = site["id"]
     if args.auth == "password":
         credential_backend()
     key = probe_key(store, profile)
@@ -104,6 +111,9 @@ def dispatch(args):
         return capability_report()
     if args.command == "doctor":
         return diagnostic_report()
+    if args.command == "site":
+        from .sites import site_list, site_profile
+        return site_list() if args.action == "list" else {"offline_only": True, "site": site_profile(args.name)}
     if args.command == "install-skill":
         from .installer import install
         return install(Path(__file__).resolve().parents[2], args.target, args.update)
@@ -210,11 +220,15 @@ def make_parser():
 
     command("status", help="Offline capabilities; no config or credentials read.")
     command("doctor", help="Offline runtime/dependency checks.")
+    item = command("site", help="Read bundled site observations offline; no credentials or connections.")
+    item.add_argument("action", choices=("list", "show"))
+    item.add_argument("name", nargs="?", default="group-cluster")
     item = command("install-skill", help="Deploy full skill files to an explicitly reviewed AI target.")
     item.add_argument("--target", required=True)
     item.add_argument("--update", action="store_true")
     item = command("init", help="Secure interactive setup; never accepts password arguments.")
     item.add_argument("name", nargs="?")
+    item.add_argument("--site", choices=("group-cluster",), help="Prefill the group's address/alias; still use your own account and local trust/password prompts.")
     for name in ("host", "user", "key-file", "jump"):
         item.add_argument("--" + name)
     item.add_argument("--fingerprint", help="Optional SHA256 fingerprint verified independently; otherwise confirm first-use trust locally.")

@@ -51,3 +51,21 @@ Fix for [issue #1](https://github.com/bo-qian/ClusterFlow/issues/1): default ini
 | Full skill deployment to a temporary target | Deployed source/support files and offline doctor passed |
 
 Fourteen added tests exercise local confirmation before password entry, refusal/empty or invalid answers, EOF/interruption, noninteractive refusal, optional fingerprint match/mismatch, saved-key reuse without rewriting, explicit fingerprint checks on saved keys, changed key/algorithm rejection even with replacement and a matching new fingerprint, independent non-default ports, aliases, failed SSH/read-only checks, and unavailable credential storage. SSH and password storage are mocked; generated host keys and temporary known-host files are real. Tests neither read real credentials nor contact a cluster. Direct human onboarding, real system-vault access and actual cluster login remain environment-specific acceptance work. These checks deploy only to temporary targets and do not update the user's active installation.
+
+## 0.1.0b6 group profile, GPU resources and monitor — 2026-11-05
+
+Ubuntu/Python 3.14.10: all **119 offline tests passed**, including six site/onboarding/deployment tests, seven GPU resource tests and eight monitor parsing/presentation tests. Offline doctor, skill validation and diff whitespace checks passed. A wheel was built and installed into an isolated target; its packaged site data, offline site command and standalone monitor import were verified. No active user installation was replaced for this PR.
+
+GPU submission tests use a fake transport: they verify typed/untyped GRES arguments, CPU threads per task, missing/wrong/insufficient/drained GPU capacity, invalid resource values and frozen requests after project edits. They do not prove a real scientific solver uses CUDA.
+
+The group observations come from separately authorized live read-only checks and administrator setup on this date. Single-, concurrent single-, double- and four-GPU allocation/device-access checks succeeded. The maintained monitor source was separately deployed on node1 and exercised under its Python 3.6.8; a short double-GPU allocation validated physical card indices, per-job ownership and compute-process counts, then completed successfully. Its measured refresh was about 3.1 seconds (bounded by an SSH timeout); cached and Slurm-only reads about 0.06 seconds, compared with about 17.3 seconds for the former sequential monitor. Measurements are observations, not latency guarantees.
+
+Interactive color and plain redirected/JSON output were checked. Follow-up display checks preserve one memory line per node and omit GPU placeholders/zero columns on CPU-only nodes. Existing scientific jobs continued running during those checks; no claim is made about numerical validation of those jobs.
+
+Still not verified/configured: a group FEniCSx CUDA/PETSc environment, scientific GPU speedup/correctness, a shared project mapping, and consumable-memory scheduling. The site file intentionally stores none of the changing queue/usage/free-space values or members' credentials and private paths. Updating or publishing this source does not authorize new cluster mutations.
+
+### PR #2 review follow-up — 2026-11-05
+
+Windows/Python 3.13.5: **131 tests, 129 passed and 2 POSIX-specific skips**. WSL/Debian/Python 3.11.2: **all 131 passed**. The Windows dependency check and offline doctor passed, as did the bundled skill validator in UTF-8 mode and whitespace checks. The standalone monitor passed a Python 3.6 syntax parse; this follow-up did not execute the revised source in a Python 3.6 runtime.
+
+Review corrected UTF-8 decoding in the deployment test; per-task CPU placement and distinct-node/partition feasibility (including heterogeneous nodes, fragmented CPUs and implicit node selection); incomplete GPU index maps that could mislabel unmapped devices as free; and consistent installed-command error handling, finite time/cache arguments and cross-platform timeout cleanup. Twelve additional regressions exercise those cases. Monitor snapshot caching remains private and POSIX-only. No live cluster, user configuration, active skill installation or scientific job was changed by this repository-only follow-up.

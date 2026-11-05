@@ -23,8 +23,17 @@ def checked(remote, arguments):
 
 
 def resources(remote):
-    output = checked(remote, ["sinfo", "-N", "-h", "-o", "%N|%P|%t|%c|%m"])
-    return [dict(zip(("node", "partition", "state", "cpus", "memory_mb"), row.split("|"))) for row in output.splitlines() if row.strip()]
+    output = checked(remote, ["sinfo", "-N", "-h", "-o", "%N|%P|%t|%c|%m|%G"])
+    return [dict(zip(("node", "partition", "state", "cpus", "memory_mb", "gres"), row.split("|"))) for row in output.splitlines() if row.strip()]
+
+
+def gpu_capacity(gres, gpu_type=None):
+    """Configured whole-device capacity, not current availability or VRAM."""
+    total = 0
+    for match in re.finditer(r"(?:^|,)gpu(?::([^:,()]+))?:(\d+)(?:\([^)]*\))?", gres or ""):
+        if gpu_type is None or match.group(1) == gpu_type:
+            total += int(match.group(2))
+    return total
 
 
 def inspect_resources(remote, config):
@@ -37,12 +46,28 @@ def inspect_resources(remote, config):
             raise FlowError("First beta accepts a single literal nodelist node; leave it unset for scheduler selection.")
         candidates = [row for row in candidates if row.get("node") == nodes]
     healthy = [row for row in candidates if not any(bad in row.get("state", "").lower() for bad in ("down", "drain", "fail", "maint", "resv", "unk"))]
-    tasks = config.get("tasks", 1)
+    cpus_per_task = config.get("cpus_per_task", 1)
+    node_count = config.get("nodes")
+    tasks = config.get("tasks", node_count or 1)
     memory = config.get("memory_mb", 0)
-    healthy = [row for row in healthy if int(row.get("cpus", "0")) * config.get("nodes", 1) >= tasks and int(row.get("memory_mb", "0")) >= memory]
-    if not healthy:
-        raise FlowError("No healthy node matches configured partition/node/CPU/memory capacity. Inspect resources before submitting.")
-    return healthy
+    healthy = [row for row in healthy if int(row.get("cpus", "0")) >= cpus_per_task and int(row.get("memory_mb", "0")) >= memory]
+    if config.get("gpus_per_node"):
+        healthy = [row for row in healthy if gpu_capacity(row.get("gres"), config.get("gpu_type")) >= config["gpus_per_node"]]
+    # A task's CPUs must fit on one node. Count whole task slots on distinct
+    # nodes in one partition; multiplying one node's capacity invents nodes
+    # and rejects valid heterogeneous allocations.
+    partitions = {}
+    for row in healthy:
+        partitions.setdefault(row.get("partition", "").rstrip("*"), {}).setdefault(row["node"], row)
+    suitable = []
+    for members in partitions.values():
+        slots = sorted((int(row["cpus"]) // cpus_per_task for row in members.values()), reverse=True)
+        if len(slots) < (node_count or 1) or sum(slots[:node_count]) < tasks:
+            continue
+        suitable.extend(members.values())
+    if not suitable:
+        raise FlowError("No healthy node set matches configured partition/node/CPU/memory/GPU capacity. No submission was made; inspect resources before submitting.")
+    return suitable
 
 
 def preview(project, data):
@@ -224,11 +249,14 @@ def submit(project, data, remote):
     elif remote.read(script_path) != script:
         raise FlowError("Remote launch script conflicts with this execution.")
     arguments = ["sbatch", "--hold", "--parsable", "--job-name=" + job_name(data), "--comment=clusterflow:" + data["execution_id"], "--chdir=" + data["remote_code"], "--output=" + data["remote_run"] + "/logs/slurm-%j.out", "--error=" + data["remote_run"] + "/logs/slurm-%j.err"]
-    options = {"partition": "partition", "account": "account", "tasks": "ntasks", "nodes": "nodes", "memory_mb": "mem", "nodelist": "nodelist", "time": "time"}
+    options = {"partition": "partition", "account": "account", "tasks": "ntasks", "nodes": "nodes", "cpus_per_task": "cpus-per-task", "memory_mb": "mem", "nodelist": "nodelist", "time": "time"}
     for key, option in options.items():
         if key in config:
             value = str(config[key]) + ("M" if key == "memory_mb" else "")
             arguments.append("--" + option + "=" + value)
+    if config.get("gpus_per_node"):
+        gpu = "gpu:" + ((config["gpu_type"] + ":") if config.get("gpu_type") else "") + str(config["gpus_per_node"])
+        arguments.append("--gres=" + gpu)
     arguments.append(script_path)
     data["state"] = "SUBMITTING"
     save_record(project, data, "submission_started")

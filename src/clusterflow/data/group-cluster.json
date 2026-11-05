@@ -1,0 +1,83 @@
+{
+  "id": "group-cluster",
+  "name": "课题组 Cluster 集群",
+  "last_verified": "2026-11-05",
+  "live_state": false,
+  "connection": {
+    "suggested_alias": "Cluster",
+    "host": "10.0.43.7",
+    "port": 22,
+    "login_node": "node1",
+    "vpn_required_on_verified_network": false,
+    "jump_host_required_on_verified_network": false,
+    "username": "ask_each_user",
+    "authentication": "user_selected_password_agent_or_key",
+    "host_trust": "local_first_use_confirmation_or_independently_verified_fingerprint"
+  },
+  "scheduler": {
+    "type": "slurm",
+    "version_observed": "24.11.3",
+    "partition": "cpu",
+    "submission_node": "node1",
+    "compute_nodes": ["node2", "node3", "node4", "node5", "node6"],
+    "select_type": "select/cons_tres",
+    "select_type_parameters": "CR_CPU",
+    "memory_reservation_enabled": false,
+    "task_plugin": "task/cgroup",
+    "gpu_device_isolation_verified": true,
+    "time_policy": "No partition maximum observed; choose a task-specific time, not an unlimited default."
+  },
+  "nodes": [
+    {"name": "node2", "cpu_model": "Intel Xeon Platinum 8370C", "cpus": 64, "sockets": 2, "cores_per_socket": 32, "threads_per_core": 1, "slurm_memory_mib": 240000, "physical_memory_mib_observed": 257060, "gpus": []},
+    {"name": "node3", "cpu_model": "Intel Xeon Platinum 8370C", "cpus": 64, "sockets": 2, "cores_per_socket": 32, "threads_per_core": 1, "slurm_memory_mib": 240000, "physical_memory_mib_observed": 257059, "gpus": []},
+    {"name": "node4", "cpu_model": "Intel Xeon Platinum 8370C", "cpus": 64, "sockets": 2, "cores_per_socket": 32, "threads_per_core": 1, "slurm_memory_mib": 240000, "physical_memory_mib_observed": 257059, "gpus": []},
+    {"name": "node5", "cpu_model": "Intel Xeon Platinum 8573C", "cpus": 104, "sockets": 2, "cores_per_socket": 52, "threads_per_core": 1, "slurm_memory_mib": 750000, "physical_memory_mib_observed": 773143, "gpus": [{"model_reported": "NVIDIA GeForce RTX 4090", "count": 4, "memory_mib_per_device_reported": 49140, "slurm_type": "rtx_4090"}]},
+    {"name": "node6", "cpu_model": "AMD EPYC 9654", "cpus": 192, "sockets": 2, "cores_per_socket": 96, "threads_per_core": 1, "slurm_memory_mib": 2280000, "physical_memory_mib_observed": 2321424, "gpus": []}
+  ],
+  "gpu": {
+    "node": "node5",
+    "partition": "cpu",
+    "gres": "gpu:rtx_4090:4",
+    "driver_observed": "595.104.02",
+    "driver_cuda_max_reported": "13.2",
+    "cuda_toolkits_observed": ["12.8", "12.9"],
+    "cuda_default_link_observed": "/usr/local/cuda-12.8",
+    "nvcc_default_path_configured": false,
+    "fenicsx_gpu_environment_verified": false,
+    "gres_mapping_observed": [
+      {"device_indices": [0, 1], "slurm_cpu_cores": "0-51"},
+      {"device_indices": [2, 3], "slurm_cpu_cores": "52-103"}
+    ],
+    "allocation": "whole_devices",
+    "vram_gib_is_not_a_slurm_mem_request": true
+  },
+  "software": {
+    "node5_os_observed": "Rocky Linux 8.8",
+    "shared_conda_root": "/home/soft/miniconda/2025",
+    "base_python_observed": "3.13.12",
+    "conda_environments_observed": ["base", "com", "fenics", "fenicsx", "moose"],
+    "environment_backup_directories_observed": ["com.bak", "fenics.bak", "fenicsx.bak"],
+    "module_path": "/home/modulefiles",
+    "modules_observed": ["abaqus/2022", "comsol/61", "matlab/2024a"]
+  },
+  "storage": {
+    "shared_home": "/home",
+    "shared_home_capacity_reported": "15T",
+    "node5_root_capacity_reported": "462G",
+    "project_source_run_result_paths": "bind_per_user_and_project; never infer from another member"
+  },
+  "monitoring": {
+    "command": "/usr/bin/joblist",
+    "source": "src/clusterflow/joblist.py",
+    "version_observed": "2.1",
+    "live_snapshot_cache_seconds": 10,
+    "default_ssh_probe_timeout_seconds": 3,
+    "allocation_queries_are_uncached": true,
+    "node6_ssh_probe_may_timeout": true,
+    "timeout_does_not_establish_node_failure": true
+  },
+  "refresh_before_use": [
+    "node state and queue", "CPU/GPU allocation", "available memory", "GPU processes/utilization",
+    "disk availability", "account/partition access", "selected environment and dependencies"
+  ]
+}
