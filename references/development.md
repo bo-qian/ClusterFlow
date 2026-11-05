@@ -31,8 +31,13 @@ Build with `python -m build --wheel`. Deploy the full skill with `python scripts
 | `references/validation.md` | Observed release verification, skips and unverified behavior |
 | `examples/` | Fictional portable project mapping, not private user configuration |
 | `tests/` | Offline/fake-transport/Slurm checks |
+| `src/clusterflow/data/group-cluster.json` | Dated, opt-in shared site observations; packaged in wheels; no member credentials or paths |
+| `references/group-cluster.md` | Group-specific operating conventions, verified limits and refresh requirements |
+| `src/clusterflow/joblist.py` | Standalone Python 3.6+ Slurm monitor; optional `clusterflow-joblist` entry; not an automatic remote installer |
 | `agents/openai.yaml` | Optional harness-specific UI metadata |
 
 ## Verification and releases
+
+The standalone joblist source may be reviewed and deployed to node1's system entry by an administrator in a separate task. It uses standard-library modules only and does not import the Python 3.11+ ClusterFlow client. Back up the system script and any personal shadowing entry; preserve interactive colors, plain redirected/JSON output, one memory line per node and no CPU-only GPU placeholders. Site/profile updates never execute maintenance or install monitoring scripts remotely.
 
 See [observed verification](validation.md), not the user README, for test counts and environment details. Use fake transports first. Verify build/install/deploy from a clean committed checkout. Never represent mocked keyring/Slurm tests as real credential access, SSH connection, cluster scheduling or scientific validation. Update skill instructions and command documentation with actual interface changes. User-specific credentials and experimental records never enter the public repository.
