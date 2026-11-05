@@ -45,7 +45,7 @@ def hidden_password():
 
 def setup(store, args):
     from .config import cluster_profile
-    from .transport import Remote, credential_backend, fingerprint, password_set, probe_key, trust_key
+    from .transport import Remote, credential_backend, fingerprint, host_key_known, host_label, password_set, probe_key, trust_key
 
     def required(value, prompt):
         if value:
@@ -62,13 +62,27 @@ def setup(store, args):
     if args.auth == "password":
         credential_backend()
     key = probe_key(store, profile)
-    expected = args.fingerprint
-    if not expected:
-        print("Observed fingerprint: " + fingerprint(key), file=sys.stderr)
-        print("Verify it with your administrator/trusted source, then enter the full fingerprint.", file=sys.stderr)
-        expected = required(None, "Verified fingerprint: ")
     with lock(store.home / "hostkeys.lock"):
-        trust_key(store, profile, key, expected)
+        known = host_key_known(store, profile, key)
+        if args.fingerprint is not None:
+            trust_key(store, profile, key, args.fingerprint)
+            host_trust = "fingerprint_match"
+        elif known:
+            host_trust = "stored_key"
+        else:
+            if not sys.stdin.isatty():
+                raise FlowError("First host trust requires confirmation in an interactive local terminal. Run init there, or use --fingerprint only with an independently verified fingerprint.")
+            print(f"First connection to {host_label(profile)} ({key.get_name()}).", file=sys.stderr)
+            print("Server fingerprint: " + fingerprint(key), file=sys.stderr)
+            print("First-use trust has not independently verified the server identity.", file=sys.stderr)
+            try:
+                answer = input("Trust this host and save its key? [y/N]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt) as error:
+                raise FlowError("Host trust was not confirmed; no key or connection profile was saved.") from error
+            if answer not in ("y", "yes"):
+                raise FlowError("Host trust was not confirmed; no key or connection profile was saved.")
+            trust_key(store, profile, key, fingerprint(key))
+            host_trust = "first_use_confirmation"
     password = hidden_password() if args.auth == "password" else None
     with Remote(store, profile, password=password) as remote:
         if remote.exec(["true"])[0]:
@@ -77,7 +91,7 @@ def setup(store, args):
         password_set(profile, password)
     store.put("clusters", name, profile, replace=args.replace)
     return {"cluster": name, "connection_verified": True, "config_directory": str(store.home),
-            "credential_saved": args.auth == "password", "project_bound": False}
+            "credential_saved": args.auth == "password", "project_bound": False, "host_trust": host_trust}
 
 
 def require_yes(args):
@@ -201,8 +215,9 @@ def make_parser():
     item.add_argument("--update", action="store_true")
     item = command("init", help="Secure interactive setup; never accepts password arguments.")
     item.add_argument("name", nargs="?")
-    for name in ("host", "user", "key-file", "jump", "fingerprint"):
+    for name in ("host", "user", "key-file", "jump"):
         item.add_argument("--" + name)
+    item.add_argument("--fingerprint", help="Optional SHA256 fingerprint verified independently; otherwise confirm first-use trust locally.")
     item.add_argument("--port", type=int, default=22)
     item.add_argument("--auth", choices=("password", "agent", "key"), default="password")
     item.add_argument("--replace", action="store_true")

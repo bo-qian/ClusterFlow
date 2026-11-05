@@ -87,10 +87,8 @@ def probe_key(store, profile):
             jump.close()
 
 
-def trust_key(store, profile, key, expected):
+def _checked_host_keys(store, profile, key):
     import paramiko
-    if expected != fingerprint(key):
-        raise FlowError("Server fingerprint does not match the explicitly verified fingerprint.")
     file = store.home / "known_hosts"
     keys = paramiko.HostKeys()
     if file.exists():
@@ -98,7 +96,22 @@ def trust_key(store, profile, key, expected):
     existing = keys.lookup(host_label(profile))
     if existing and (key.get_name() not in existing or existing[key.get_name()] != key):
         raise FlowError("Stored host key changed. Verify with the administrator; automatic replacement is forbidden.")
+    return keys
+
+
+def host_key_known(store, profile, key):
+    """Check a stored pin before asking for trust or authentication."""
+    return bool(_checked_host_keys(store, profile, key).lookup(host_label(profile)))
+
+
+def trust_key(store, profile, key, expected):
+    if expected != fingerprint(key):
+        raise FlowError("Server fingerprint does not match the expected fingerprint.")
+    keys = _checked_host_keys(store, profile, key)
+    if keys.lookup(host_label(profile)):
+        return
     keys.add(host_label(profile), key.get_name(), key)
+    file = store.home / "known_hosts"
     store.home.mkdir(parents=True, exist_ok=True, mode=0o700)
     temporary = store.home / f"known_hosts.{uuid.uuid4().hex}.tmp"
     try:

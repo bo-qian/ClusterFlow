@@ -1,4 +1,4 @@
-# Command guide — 0.1.0b4
+# Command guide — 0.1.0b5
 
 Run commands with the Python environment in which the reviewed checkout was installed. From its root use `python scripts/clusterflow.py ...`; `clusterflow ...` is the equivalent installed CLI. Output is JSON (also accepts `--json`). Global `--home PATH` comes **before** the command and chooses a private per-user configuration directory, not a directory inside this repository.
 
@@ -22,7 +22,17 @@ The environment interpreter path varies by OS (`Scripts/python.exe` on Windows, 
 clusterflow init my-cluster --host cluster.example.invalid --user researcher --auth password
 ```
 
-Run in a local terminal the human can operate. Setup probes the server public key, asks for a fingerprint verified through a trusted source, then requests the password with hidden terminal input. Never enter a real password in chat, CLI arguments, an environment variable or a JSON file. A password flag intentionally does not exist. `--fingerprint SHA256:...` is for a separately verified fingerprint, not a way for the AI to auto-trust its own network observation.
+Run in a local terminal the human can operate. Setup displays the host, key type and fingerprint, then asks `Trust this host and save its key? [y/N]:` on the first connection. Enter `y` or `yes` to save the key; empty input, refusal or interruption stops setup before requesting a password. The next step requests the password with hidden terminal input. No administrator contact or full fingerprint entry is required by default. First-use trust does not independently verify server identity. Matching saved keys are reused without another trust prompt; a changed key stops setup before password entry, even with `--replace`.
+
+The human must answer the trust and password prompts directly. An AI must not answer on their behalf, pipe `yes`, or supply the fingerprint it just observed. If the AI terminal cannot support direct human input, provide the command for the user's own local terminal. Unknown hosts without `--fingerprint` fail in noninteractive mode. The JSON result's `host_trust` distinguishes `first_use_confirmation`, `stored_key`, and `fingerprint_match`; connection success alone does not establish independent identity verification.
+
+Optional strict verification uses a fingerprint independently obtained through a trusted channel:
+
+```text
+clusterflow init my-cluster --host cluster.example.invalid --user researcher --auth password --fingerprint SHA256:TRUSTED_FINGERPRINT
+```
+
+Replace the illustrative value with the separately verified fingerprint. A mismatch stops setup without falling back to first-use confirmation. This option skips only the first-use trust prompt; password authentication still requires a local hidden prompt. Never enter a real password in chat, CLI arguments, an environment variable or a JSON file. A password flag intentionally does not exist.
 
 On Windows use Windows Credential Manager, on macOS Keychain, on Linux an available Secret Service. No plaintext or fallback backend is accepted. WSL and Windows are separate execution environments: prefer running the client under Windows for the Windows credential store, even when source is a WSL UNC path. Headless Linux without a secret service should use an SSH agent or explicitly selected key instead.
 
@@ -125,7 +135,7 @@ This verifies the retained old snapshot, copies its actual source/input and laun
 
 ## Verification boundary
 
-This beta has automated fake SSH/storage/Slurm tests, not production-cluster acceptance. First test deployment/doctor, then trusted host fingerprint and login, bind a small reviewed project, and submit a cheap smoke case only on the user's request. Cross-AI discovery, real credential access, site scheduling and scientific regression need verification in the target environment. Keep secrets out of shared diagnostic output.
+This beta has automated fake SSH/storage/Slurm tests, not production-cluster acceptance. First test deployment/doctor, then locally confirmed first-use trust (or optional independently verified fingerprint) and login, bind a small reviewed project, and submit a cheap smoke case only on the user's request. Cross-AI discovery, real credential access, site scheduling and scientific regression need verification in the target environment. Keep secrets out of shared diagnostic output.
 
 ## Existing remote code (input-only mode)
 

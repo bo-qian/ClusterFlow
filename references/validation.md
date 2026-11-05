@@ -38,3 +38,16 @@ Scheduler names for new executions use readable case labels and a short uniquene
 ## 0.1.0b4 selected remote-source gate — 2026-10-28
 
 Windows/Python 3.13.5: 84 automated tests, 82 passed and 2 POSIX-only checks skipped. Six new tests verify matching selected source without code uploads, stale rendering code blocking before input upload, changed untracked output code blocking submit, missing local/remote files and unsafe configuration paths. Existing readable-name, legacy-record, snapshot and input-only tests remain passing. This checks intended selected file versions, not every mutable dependency or a source freeze after launch.
+
+## 0.1.0b5 first-use host trust — 2026-11-05
+
+Fix for [issue #1](https://github.com/bo-qian/ClusterFlow/issues/1): default initialization uses a human-operated local first-use confirmation instead of mandatory full fingerprint entry. Optional `--fingerprint` remains strict, matching saved keys are reused, and changed keys are rejected before password entry even with `--replace`. First-use trust is explicitly distinguished from independent server identity verification.
+
+| Environment/check | Observed result |
+|---|---|
+| Windows/Python 3.13.5, Paramiko 4.0.0, keyring 25.7.0 | 98 tests; 96 passed, 2 POSIX-only checks skipped; dependency check passed |
+| WSL/Debian, isolated Python 3.11.2, Paramiko 4.0.0, keyring 25.7.0 | All 98 tests passed; dependency check and offline doctor passed |
+| Wheel built from a temporary source copy | 0.1.0b5 built and installed to an isolated target; installed status and doctor passed |
+| Full skill deployment to a temporary target | Deployed source/support files and offline doctor passed |
+
+Fourteen added tests exercise local confirmation before password entry, refusal/empty or invalid answers, EOF/interruption, noninteractive refusal, optional fingerprint match/mismatch, saved-key reuse without rewriting, explicit fingerprint checks on saved keys, changed key/algorithm rejection even with replacement and a matching new fingerprint, independent non-default ports, aliases, failed SSH/read-only checks, and unavailable credential storage. SSH and password storage are mocked; generated host keys and temporary known-host files are real. Tests neither read real credentials nor contact a cluster. Direct human onboarding, real system-vault access and actual cluster login remain environment-specific acceptance work. These checks deploy only to temporary targets and do not update the user's active installation.
